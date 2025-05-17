@@ -1,0 +1,17 @@
+version: "2"
+cloud:
+  project: "zigibankgo"
+sql:
+- schema: "./db/migration/"
+  queries: "./db/query/"
+  engine: "postgresql"  
+  gen:
+    go: 
+      emit_empty_slices: true
+      emit_interface: true
+      package: "zigibankgo"
+      out: "./db/sqlc/"
+  database:
+    uri: "postgresql://root:secret@localhost:5555/simplebank?sslmode=disable"
+  rules:
+    - sqlc/db-prepare
