@@ -2,7 +2,9 @@ package api
 
 import (
 	db "BankAppGo/db/sqlc"
+	"BankAppGo/token"
 	"database/sql"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -24,12 +26,21 @@ func (server *Server) createTransfer(ctx *gin.Context) {
 		return
 	}
 
+	authPayload := ctx.MustGet(authorizationPayloadKey).(*token.Payload)
+
 	// check currency transfer will occur in
-	if !server.validate_account(ctx, req.FromAccountID, req.Currency) {
+	account, valid := server.validate_account(ctx, req.FromAccountID, req.Currency)
+	if !valid {
 		return
 	}
 
-	if !server.validate_account(ctx, req.ToAccountID, req.Currency) {
+	if account.Owner != authPayload.Username {
+		err := errors.New("from account doesn't belong to the authenticated user")
+		ctx.JSON(http.StatusUnauthorized, errorResponse(err))
+		return
+	}
+
+	if _, valid = server.validate_account(ctx, req.ToAccountID, req.Currency); !valid {
 		return
 	}
 
@@ -51,23 +62,23 @@ func (server *Server) createTransfer(ctx *gin.Context) {
 
 }
 
-func (server *Server) validate_account(ctx *gin.Context, accountID int64, currency string) bool {
+func (server *Server) validate_account(ctx *gin.Context, accountID int64, currency string) (db.Account, bool) {
 	account, err := server.store.GetAccount(ctx, int64(accountID))
 	if err != nil {
 		if err == sql.ErrNoRows {
 			ctx.JSON(http.StatusNotFound, errorResponse((err)))
-			return false
+			return db.Account{}, false
 		}
 		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
-		return false
+		return db.Account{}, false
 	}
 
 	if account.Currency != currency {
 		err := fmt.Errorf("account [%d] currency mismatch: %s vs %s", accountID, account.Currency, currency)
 		ctx.JSON(http.StatusBadRequest, errorResponse(err))
-		return false
+		return db.Account{}, false
 	}
 
-	return true
+	return account, true
 
 }
