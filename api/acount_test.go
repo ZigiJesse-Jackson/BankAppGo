@@ -198,6 +198,7 @@ func TestCreateAccount(t *testing.T) {
 				arg := db.CreateAccountParams{
 					Owner:    user.Username,
 					Currency: account.Currency,
+					Balance:  0,
 				}
 				store.EXPECT().CreateAccount(gomock.Any(), EqCreateAccountParams(arg, user.Username)).Times(1).Return(account, nil)
 			},
