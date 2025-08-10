@@ -1,3 +1,5 @@
+COMMIT_MSG :=""
+
 postgres16: 
 	docker run --name postgres16 -e POSTGRES_USER=root -e POSTGRES_PASSWORD=secret -p 5555:5432 -d postgres:16-alpine3.19
 
@@ -30,5 +32,10 @@ test:
 
 mock:
 	mockgen -package mockdb -destination db/mock/store.go BankAppGo/db/sqlc Store 
+	
+push_git:
+	git add .
+	git commit -m "$(COMMIT_MSG)" 
+	git push
 
-.PHONY: postgres16 createdb dropdb migrateup migratedown migrateup1 migratedown1 sqlc test server mock
+.PHONY: postgres16 createdb dropdb migrateup migratedown migrateup1 migratedown1 sqlc test server mock push_git
