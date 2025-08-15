@@ -1,7 +1,7 @@
 COMMIT_MSG :=""
 
 postgres16: 
-	docker run --name postgres16 -e POSTGRES_USER=root -e POSTGRES_PASSWORD=secret -p 5555:5432 -d postgres:16-alpine3.19
+	docker run --name postgres16 --network bank-network -e POSTGRES_USER=root -e POSTGRES_PASSWORD=secret -p 5555:5432 -d postgres:16-alpine3.19
 
 createdb:
 	docker exec -it postgres16 createdb --username=root --owner=root simplebank

@@ -5,6 +5,7 @@ import (
 	db "BankAppGo/db/sqlc"
 	"BankAppGo/db/util"
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -188,6 +189,134 @@ func TestCreateUserAPI(t *testing.T) {
 			server.router.ServeHTTP(recorder, request)
 			// check response
 			tc.checkResponse(t, recorder)
+
+		})
+	}
+
+}
+
+// TODO: Create login test
+func TestUserLogin(t *testing.T) {
+	user, password := randomUser(t)
+
+	testCases := []struct {
+		name          string
+		body          gin.H
+		buildStubs    func(store *mockdb.MockStore)
+		checkResponse func(t *testing.T, recorder *httptest.ResponseRecorder, server *Server)
+	}{
+		{
+			name: "OK",
+			body: gin.H{
+				"username": user.Username,
+				"password": password,
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				arg := db.CreateUserParams{
+					Username: user.Username,
+					FullName: user.FullName,
+					Email:    user.Email,
+				}
+
+				store.EXPECT().
+					GetUser(gomock.Any(), gomock.Eq(arg.Username)).
+					Times(1).
+					Return(user, nil)
+			},
+			checkResponse: func(t *testing.T, recorder *httptest.ResponseRecorder, server *Server) {
+				//check response from http request
+				require.Equal(t, http.StatusOK, recorder.Code)
+
+				//check returned account from API
+
+				data, err := io.ReadAll(recorder.Body)
+				require.NoError(t, err)
+
+				var LoginData struct {
+					AccessToken string  `json:"access_token"`
+					User        db.User `json:"user"`
+				}
+				err = json.Unmarshal(data, &LoginData)
+				require.NoError(t, err)
+				gotUser := LoginData.User
+				require.Equal(t, user.Username, gotUser.Username)
+				require.Equal(t, user.Email, gotUser.Email)
+				require.Equal(t, user.FullName, gotUser.FullName)
+				require.Empty(t, gotUser.HashedPassword)
+				// verify token
+				payload, err := server.tokenMaker.VerifyToken(LoginData.AccessToken)
+				require.NoError(t, err)
+				require.NoError(t, payload.Valid())
+				require.Equal(t, payload.Username, user.Username)
+
+			},
+		},
+		{
+			name: "InvalidUsernameLogin",
+			body: gin.H{
+				"username": "userUsername",
+				"password": password,
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+
+				store.EXPECT().
+					GetUser(gomock.Any(), gomock.Any()).
+					Times(1).Return(db.User{}, sql.ErrNoRows)
+			},
+			checkResponse: func(t *testing.T, recorder *httptest.ResponseRecorder, server *Server) {
+				//check response from http request
+				require.Equal(t, http.StatusNotFound, recorder.Code)
+
+			},
+		},
+		{
+			name: "UnauthorizedLoginAttempt",
+			body: gin.H{
+				"username": user.Username,
+				"password": "password",
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				arg := db.CreateUserParams{
+					Username: user.Username,
+					FullName: user.FullName,
+					Email:    user.Email,
+				}
+				store.EXPECT().
+					GetUser(gomock.Any(), gomock.Eq(arg.Username)).
+					Times(1).Return(user, nil)
+			},
+			checkResponse: func(t *testing.T, recorder *httptest.ResponseRecorder, server *Server) {
+				//check response from http request
+				require.Equal(t, http.StatusUnauthorized, recorder.Code)
+			},
+		},
+	}
+
+	for i := range testCases {
+		tc := testCases[i]
+
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			store := mockdb.NewMockStore(ctrl)
+			// builds stub
+			tc.buildStubs(store)
+
+			//start test server and send request
+			server := newTestServer(t, store)
+			recorder := httptest.NewRecorder()
+
+			data := GinHToURLValues(tc.body)
+
+			url := "/users/login"
+			request, err := http.NewRequest(http.MethodPost, url, strings.NewReader(data.Encode()))
+			require.NoError(t, err)
+			request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+			server.router.ServeHTTP(recorder, request)
+			// check response
+			tc.checkResponse(t, recorder, server)
 
 		})
 	}
