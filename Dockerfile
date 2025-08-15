@@ -8,6 +8,7 @@ RUN go build -o bank main.go
 FROM alpine:3.22
 WORKDIR /app 
 COPY --from=builder /app/bank .
+COPY app.env .
 
 EXPOSE 8080
 CMD [ "/app/bank" ]

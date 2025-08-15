@@ -92,7 +92,7 @@ func (server *Server) createUser(ctx *gin.Context) {
 func (server *Server) loginUser(ctx *gin.Context) {
 	var req loginUserRequest
 
-	if err := ctx.ShouldBindJSON(&req); err != nil {
+	if err := ctx.ShouldBind(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, errorResponse(err))
 		return
 	}
