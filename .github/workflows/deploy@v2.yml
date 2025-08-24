@@ -22,11 +22,12 @@ jobs:
           aws-region: eu-north-1
 
       - name: Log in to Amazon ECR
-        run: aws ecr get-login-password --region eu-north-1 | \
-             docker login --username AWS --password-stdin 665910433237.dkr.ecr.eu-north-1.amazonaws.com
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
 
       - name: Build, Tag, and Push image
         run: |
-          docker build -t my-app .
-          docker tag my-app:latest 665910433237.dkr.ecr.eu-north-1.amazonaws.com/my-app:latest
-          docker push 665910433237.dkr.ecr.eu-north-1.amazonaws.com/my-app:latest
+          docker build -t simplebank .
+          docker tag simplebank:latest 665910433237.dkr.ecr.eu-north-1.amazonaws.com/simplebank:latest
+          docker push 665910433237.dkr.ecr.eu-north-1.amazonaws.com/simplebank:latest
